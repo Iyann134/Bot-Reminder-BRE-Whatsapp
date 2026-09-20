@@ -39,5 +39,30 @@ export const scheduleService = {
     }
 
     return await db.deleteSchedule(userPhone, target.id);
+  },
+
+  async editSchedule(userPhone, idInput, day, time, subject, location) {
+    const userSchedules = await this.getUserSchedules(userPhone);
+    const cleanInput = String(idInput).trim().toUpperCase();
+
+    let target = userSchedules.find(s => 
+      s.displayId === cleanInput || 
+      s.displayId === `[${cleanInput}]` ||
+      String(s.id) === cleanInput
+    );
+
+    if (!target) {
+      return null;
+    }
+
+    const updateFields = {};
+    if (day && day.trim()) updateFields.day = day.trim();
+    if (time && time.trim()) updateFields.time = time.trim();
+    if (subject && subject.trim()) updateFields.subject = subject.trim();
+    if (location && location.trim()) updateFields.location = location.trim();
+
+    if (Object.keys(updateFields).length === 0) return target;
+
+    return await db.updateScheduleDetails(userPhone, target.id, updateFields);
   }
 };

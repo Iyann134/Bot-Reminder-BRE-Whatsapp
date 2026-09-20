@@ -26,14 +26,19 @@ export async function handleCommand(senderJid, text) {
       `📅 *3. Tambah Jadwal Kuliah*\n` +
       `• \`!tambah jadwal [Hari] | [Jam] | [Matkul] | [Lokasi]\`\n` +
       `  _Contoh:_ \`!tambah jadwal Senin | 08:00 - 10:30 | Jaringan Komputer | Lab 3\`\n\n` +
-      `✅ *4. Selesaikan Tugas*\n` +
+      `✏️ *4. Edit Tugas / Jadwal*\n` +
+      `• \`!edit tugas [ID] | [Judul Baru] | [Deadline Baru]\`\n` +
+      `  _Contoh:_ \`!edit tugas T01 | Laporan Pemrograman | Lusa jam 14:00\`\n` +
+      `• \`!edit jadwal [ID] | [Hari] | [Jam] | [Matkul] | [Lokasi]\`\n` +
+      `  _Contoh:_ \`!edit jadwal J01 | Selasa | 10:00 - 12:30 | Basdat | Lab 1\`\n\n` +
+      `✅ *5. Selesaikan Tugas*\n` +
       `• \`!selesai [ID_TUGAS]\`\n` +
       `  _Contoh:_ \`!selesai T01\`\n\n` +
-      `🗑️ *5. Hapus Task / Jadwal*\n` +
+      `🗑️ *6. Hapus Task / Jadwal*\n` +
       `• \`!hapus [ID]\`\n` +
       `  _Contoh:_ \`!hapus T01\` atau \`!hapus J01\`\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n` +
-      `💡 _Pastikan menggunakan karakter pemisah vertical bar (\`|\`) saat menambah item!_`;
+      `💡 _Pastikan menggunakan karakter pemisah vertical bar (\`|\`) saat menambah/mengedit item!_`;
   };
 
   // 1. HELP / MENU COMMAND
@@ -96,7 +101,58 @@ export async function handleCommand(senderJid, text) {
       `_Ketik \`!list\` untuk melihat seluruh jadwalmu._`;
   }
 
-  // 5. SELESAI TUGAS
+  // 5. EDIT TUGAS
+  if (lowerMsg.startsWith('!edit tugas') || lowerMsg.startsWith('edit tugas')) {
+    const payload = rawMessage.substring(rawMessage.indexOf('tugas') + 5).trim();
+    const parts = payload.split('|').map(s => s.trim());
+
+    if (parts.length < 2) {
+      return `⚠️ *FORMAT SALAH*, bre!\n\n` +
+        `*Gunakan Format:* \`!edit tugas [ID] | [Judul Baru] | [Deadline Baru]\`\n` +
+        `*Contoh:* \`!edit tugas T01 | Laporan Pemrograman Web | Besok jam 10 malam\``;
+    }
+
+    const [idInput, newTitle, newDeadline] = parts;
+    const updatedTask = await taskService.editTask(userPhone, idInput, newTitle, newDeadline);
+
+    if (!updatedTask) {
+      return `❌ *ID TUGAS TIDAK DITEMUKAN!*\nPastikan ID tugas benar (e.g., \`T01\`). Ketik \`!list\` untuk mengecek.`;
+    }
+
+    return `✏️ *TUGAS BERHASIL DIUPDATE!*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n` +
+      `📌 *Judul:* ${updatedTask.title}\n` +
+      `⏰ *Deadline:* ${updatedTask.deadline_text}\n\n` +
+      `_Ketik \`!list\` untuk melihat perubahan._`;
+  }
+
+  // 6. EDIT JADWAL
+  if (lowerMsg.startsWith('!edit jadwal') || lowerMsg.startsWith('edit jadwal')) {
+    const payload = rawMessage.substring(rawMessage.indexOf('jadwal') + 6).trim();
+    const parts = payload.split('|').map(s => s.trim());
+
+    if (parts.length < 4) {
+      return `⚠️ *FORMAT SALAH*, bre!\n\n` +
+        `*Gunakan Format:* \`!edit jadwal [ID] | [Hari] | [Jam] | [Matkul] | [Lokasi]\`\n` +
+        `*Contoh:* \`!edit jadwal J01 | Selasa | 10:00 - 12:30 | Basdat | Lab 1\``;
+    }
+
+    const [idInput, day, time, subject, location] = parts;
+    const updatedSchedule = await scheduleService.editSchedule(userPhone, idInput, day, time, subject, location);
+
+    if (!updatedSchedule) {
+      return `❌ *ID JADWAL TIDAK DITEMUKAN!*\nPastikan ID jadwal benar (e.g., \`J01\`). Ketik \`!list\` untuk mengecek.`;
+    }
+
+    return `✏️ *JADWAL BERHASIL DIUPDATE!*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n` +
+      `📚 *Matkul:* ${updatedSchedule.subject}\n` +
+      `🕒 *Waktu:* ${updatedSchedule.day}, ${updatedSchedule.time}\n` +
+      `📍 *Lokasi:* ${updatedSchedule.location}\n\n` +
+      `_Ketik \`!list\` untuk melihat perubahan._`;
+  }
+
+  // 7. SELESAI TUGAS
   if (lowerMsg.startsWith('!selesai') || lowerMsg.startsWith('selesai')) {
     const idInput = rawMessage.replace(/^[!]?selesai/i, '').trim();
 
@@ -117,7 +173,7 @@ export async function handleCommand(senderJid, text) {
       `_Mantap bre, 1 beban selesai!_ 💪`;
   }
 
-  // 6. HAPUS ITEM
+  // 8. HAPUS ITEM
   if (lowerMsg.startsWith('!hapus') || lowerMsg.startsWith('hapus')) {
     const idInput = rawMessage.replace(/^[!]?hapus/i, '').trim();
 

@@ -42,6 +42,8 @@
 | **`!list` / `!tugas`** | `!list` | Menampilkan dashboard lengkap jadwal & daftar tugas terpisah per pengguna. |
 | **`!tambah tugas`** | `!tambah tugas Laporan Lab | Besok jam 8 malam` | Menambah tugas baru dengan parsing deadline alami. |
 | **`!tambah jadwal`** | `!tambah jadwal Senin | 08:00 - 10:30 | Jaringan Komputer | Lab 3` | Menambah jadwal kuliah baru. |
+| **`!edit tugas`** | `!edit tugas T01 | Judul Baru | Besok 10 malam` | Mengubah judul atau deadline tugas yang sudah ada. |
+| **`!edit jadwal`** | `!edit jadwal J01 | Selasa | 10:00 - 12:30 | Matkul | Lab 1` | Mengubah rincian jadwal kuliah yang sudah ada. |
 | **`!selesai`** | `!selesai T01` | Menandai tugas selesai dengan format strikethrough. |
 | **`!hapus`** | `!hapus T01` atau `!hapus J01` | Menghapus tugas / jadwal dari database. |
 | **`!help`** | `!help` | Menampilkan bantuan perintah dan template sintaks. |

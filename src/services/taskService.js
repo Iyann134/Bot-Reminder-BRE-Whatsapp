@@ -46,6 +46,37 @@ export const taskService = {
     return await db.updateTaskStatus(userPhone, target.id, 'completed');
   },
 
+  async editTask(userPhone, idInput, newTitle, newDeadlineText) {
+    const userTasks = await this.getUserTasks(userPhone);
+    const cleanInput = String(idInput).trim().toUpperCase();
+
+    const target = userTasks.find(t => 
+      t.displayId === cleanInput || 
+      t.displayId === `[${cleanInput}]` ||
+      String(t.id) === cleanInput
+    );
+
+    if (!target) {
+      return null;
+    }
+
+    const updateFields = {};
+    if (newTitle && newTitle.trim()) {
+      updateFields.title = newTitle.trim();
+    }
+    if (newDeadlineText && newDeadlineText.trim()) {
+      const { datetime, formattedText } = parseDeadline(newDeadlineText);
+      updateFields.deadline_text = formattedText || newDeadlineText.trim();
+      updateFields.deadline_datetime = datetime ? datetime.toISOString() : null;
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      return target;
+    }
+
+    return await db.updateTaskDetails(userPhone, target.id, updateFields);
+  },
+
   async deleteTask(userPhone, idInput) {
     const userTasks = await this.getUserTasks(userPhone);
     const cleanInput = String(idInput).trim().toUpperCase();

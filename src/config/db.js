@@ -133,10 +133,14 @@ export const db = {
   },
 
   async updateTaskStatus(userPhone, taskId, status) {
+    return await this.updateTaskDetails(userPhone, taskId, { status });
+  },
+
+  async updateTaskDetails(userPhone, taskId, updateFields) {
     if (hasSupabase) {
       const { data, error } = await supabase
         .from('tasks')
-        .update({ status })
+        .update(updateFields)
         .eq('user_phone', userPhone)
         .eq('id', taskId)
         .select();
@@ -147,10 +151,35 @@ export const db = {
       let updatedItem = null;
       local.tasks = local.tasks.map(t => {
         if (t.user_phone === userPhone && Number(t.id) === Number(taskId)) {
-          updatedItem = { ...t, status };
+          updatedItem = { ...t, ...updateFields };
           return updatedItem;
         }
         return t;
+      });
+      if (updatedItem) writeLocalDb(local);
+      return updatedItem;
+    }
+  },
+
+  async updateScheduleDetails(userPhone, scheduleId, updateFields) {
+    if (hasSupabase) {
+      const { data, error } = await supabase
+        .from('schedules')
+        .update(updateFields)
+        .eq('user_phone', userPhone)
+        .eq('id', scheduleId)
+        .select();
+      if (error) throw error;
+      return data && data.length > 0 ? data[0] : null;
+    } else {
+      const local = readLocalDb();
+      let updatedItem = null;
+      local.schedules = local.schedules.map(s => {
+        if (s.user_phone === userPhone && Number(s.id) === Number(scheduleId)) {
+          updatedItem = { ...s, ...updateFields };
+          return updatedItem;
+        }
+        return s;
       });
       if (updatedItem) writeLocalDb(local);
       return updatedItem;
