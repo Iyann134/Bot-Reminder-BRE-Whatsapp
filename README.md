@@ -128,6 +128,21 @@ Scan **QR Code** yang muncul di terminal menggunakan aplikasi WhatsApp di HP kam
 
 ---
 
+## 🔄 Cara Mengganti / Reset Nomor WhatsApp Bot (Pindah ke Nomor Ke-2)
+
+Jika kamu ingin memindahkan bot ini dari nomor pribadi ke **Nomor WhatsApp Ke-2 (Nomor Cadangan / WA Business)**:
+
+1. Buka menu **Web SSH** di dashboard DOM Cloud (atau terminal lokal).
+2. Jalankan perintah hapus sesi lama dan restart bot:
+   ```bash
+   cd public_html && rm -rf auth_info_baileys && npm start
+   ```
+3. Terminal akan menghasilkan **QR Code Baru**.
+4. Scan QR Code baru tersebut menggunakan **Nomor WhatsApp Ke-2 / Cadangan** kamu.
+5. Selesai! Sekarang nomor ke-2 tersebut menjadi mesin bot BRE, dan kamu bisa leluasa chat ke kontak bot tersebut dari nomor WA pribadimu tanpa khawatir tenggelam!
+
+---
+
 ## 🔒 Keamanan & Public Repository Guideline
 
 File `.gitignore` sudah dikonfigurasi untuk melindungi file sensitif:
