@@ -46,17 +46,25 @@ async function startBot() {
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
       console.log(`🔴 WA Connection closed. Status Code: ${statusCode || 'unknown'}. Logged out: ${isLoggedOut}`);
 
+      // Clean up event listeners from the closed socket instance
+      sock.ev.removeAllListeners();
+
       if (isLoggedOut) {
-        console.log('⚠️ Sesi terputus / Logged Out. Menghapus folder auth_info_baileys dan membuat sesi QR baru...');
+        console.log('⚠️ Sesi WhatsApp telah terputus / Logged Out.');
+        console.log('🗑️ Menghapus folder auth_info_baileys & menyiapkan QR Code baru dalam 2 detik...');
         try {
           fs.rmSync(authDir, { recursive: true, force: true });
         } catch (e) {
           console.error('Gagal menghapus authDir:', e);
         }
-        startBot();
+        setTimeout(() => {
+          startBot();
+        }, 2000);
       } else {
-        console.log('🔄 Mencoba menghubungkan kembali (Reconnecting)...');
-        startBot();
+        console.log('🔄 Mencoba menghubungkan kembali (Reconnecting) dalam 3 detik...');
+        setTimeout(() => {
+          startBot();
+        }, 3000);
       }
     } else if (connection === 'open') {
       console.log('✅ *BRE WHATSAPP BOT IS ONLINE & READY!* 🚀');
