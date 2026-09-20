@@ -60,7 +60,7 @@ async function startBot() {
   sock.ev.on('messages.upsert', async (m) => {
     try {
       const msg = m.messages[0];
-      if (!msg || !msg.message || msg.key.fromMe) return;
+      if (!msg || !msg.message) return;
 
       const remoteJid = msg.key.remoteJid;
       if (!remoteJid) return;
@@ -74,6 +74,9 @@ async function startBot() {
         '';
 
       if (!messageText) return;
+
+      // Ignore self-sent messages unless explicitly prefixed with !
+      if (msg.key.fromMe && !messageText.trim().startsWith('!')) return;
 
       const senderPhone = remoteJid;
       const response = await handleCommand(senderPhone, messageText);
