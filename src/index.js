@@ -42,9 +42,20 @@ async function startBot() {
     }
 
     if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log('🔴 WA Connection closed. Reconnecting...', shouldReconnect);
-      if (shouldReconnect) {
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+      console.log(`🔴 WA Connection closed. Status Code: ${statusCode || 'unknown'}. Logged out: ${isLoggedOut}`);
+
+      if (isLoggedOut) {
+        console.log('⚠️ Sesi terputus / Logged Out. Menghapus folder auth_info_baileys dan membuat sesi QR baru...');
+        try {
+          fs.rmSync(authDir, { recursive: true, force: true });
+        } catch (e) {
+          console.error('Gagal menghapus authDir:', e);
+        }
+        startBot();
+      } else {
+        console.log('🔄 Mencoba menghubungkan kembali (Reconnecting)...');
         startBot();
       }
     } else if (connection === 'open') {
