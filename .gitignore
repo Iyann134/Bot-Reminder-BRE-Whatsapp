@@ -1,0 +1,24 @@
+# Environment variables (Contains secret API keys)
+.env
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# WhatsApp Baileys Authentication & Session Storage
+auth_info_baileys/
+
+# Local JSON Database
+db.json
+
+# Scratch scripts & temporary test files
+scratch/
+
+# OS and System Files
+.DS_Store
+Thumbs.db
+*.log
