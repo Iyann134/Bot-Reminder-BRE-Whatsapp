@@ -16,6 +16,26 @@ export function parseDeadline(text, referenceDate = new Date()) {
 
   let targetDate = new Date(referenceDate);
 
+  // 0. Check relative time phrases (e.g. "10 menit lagi", "2 jam lagi", "3 hari lagi")
+  const relativeMatch = lowerInput.match(/(\d+)\s*(menit|jam|hari)\s*(lagi)?/i);
+  if (relativeMatch) {
+    const amount = parseInt(relativeMatch[1], 10);
+    const unit = relativeMatch[2].toLowerCase();
+
+    if (unit === 'menit') {
+      targetDate.setMinutes(targetDate.getMinutes() + amount);
+    } else if (unit === 'jam') {
+      targetDate.setHours(targetDate.getHours() + amount);
+    } else if (unit === 'hari') {
+      targetDate.setDate(targetDate.getDate() + amount);
+    }
+
+    return {
+      datetime: targetDate,
+      formattedText: formatIndoDate(targetDate)
+    };
+  }
+
   // 1. Check custom Indonesian natural keywords
   let handled = false;
 

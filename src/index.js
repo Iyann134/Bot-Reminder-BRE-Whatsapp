@@ -7,14 +7,30 @@ import http from 'http';
 import { handleCommand } from './handlers/commandHandler.js';
 import { startReminderScheduler } from './services/reminderService.js';
 
-// HTTP Keep-Alive Server for Render.com Web Service Health Check
+// HTTP Keep-Alive Server for Web Hosting / Health Check
 const PORT = process.env.PORT || 3000;
-http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('🔥 BRE WhatsApp Operations Agent is ONLINE & ACTIVE 24/7!');
-}).listen(PORT, () => {
-  console.log(`🌐 Keep-Alive HTTP Healthcheck listening on port ${PORT}`);
-});
+
+function startHealthCheckServer(portToUse) {
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('🔥 BRE WhatsApp Operations Agent is ONLINE & ACTIVE 24/7!');
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`⚠️ Port ${portToUse} is in use (EADDRINUSE). Trying port ${portToUse + 1}...`);
+      startHealthCheckServer(portToUse + 1);
+    } else {
+      console.error('⚠️ Healthcheck HTTP Server error:', err.message);
+    }
+  });
+
+  server.listen(portToUse, () => {
+    console.log(`🌐 Keep-Alive HTTP Healthcheck listening on port ${portToUse}`);
+  });
+}
+
+startHealthCheckServer(Number(PORT));
 
 const authDir = path.resolve(process.cwd(), 'auth_info_baileys');
 if (!fs.existsSync(authDir)) {
@@ -82,7 +98,11 @@ async function startBot() {
       if (!msg || !msg.message) return;
 
       const remoteJid = msg.key.remoteJid;
-      if (!remoteJid) return;
+      // Ignore broadcast status updates
+      if (!remoteJid || remoteJid === 'status@broadcast') return;
+
+      // Identify actual sender JID (works for both private chat & group chats)
+      const senderJid = msg.key.participant || remoteJid;
 
       // Extract message text from multiple message structures
       const messageText = 
@@ -92,20 +112,18 @@ async function startBot() {
         msg.message.videoMessage?.caption ||
         '';
 
-      if (!messageText) return;
+      if (!messageText || typeof messageText !== 'string') return;
 
-      // Ignore self-sent messages unless explicitly prefixed with !
-      if (msg.key.fromMe && !messageText.trim().startsWith('!')) return;
+      console.log(`📩 [PESAN MASUK] dari ${senderJid} (fromMe: ${msg.key.fromMe}): "${messageText}"`);
 
-      const senderPhone = remoteJid;
-      const response = await handleCommand(senderPhone, messageText);
+      const response = await handleCommand(senderJid, messageText);
 
       if (response) {
         await sock.sendMessage(remoteJid, { text: response }, { quoted: msg });
-        console.log(`💬 Handled command from ${remoteJid}: "${messageText.slice(0, 30)}..."`);
+        console.log(`💬 [RESPONS TERKIRIM] ke ${remoteJid}`);
       }
     } catch (err) {
-      console.error('Error handling WhatsApp message:', err);
+      console.error('❌ Error handling WhatsApp message:', err);
     }
   });
 }
