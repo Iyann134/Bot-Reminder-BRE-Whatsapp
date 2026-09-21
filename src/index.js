@@ -92,6 +92,34 @@ async function startBot() {
     }
   });
 
+function extractMessageText(msg) {
+  if (!msg || !msg.message) return '';
+
+  let content = msg.message;
+
+  // Unwrap ephemeral (disappearing messages), viewOnce, document wrappers
+  if (content.ephemeralMessage) {
+    content = content.ephemeralMessage.message;
+  }
+  if (content.viewOnceMessage) {
+    content = content.viewOnceMessage.message;
+  }
+  if (content.viewOnceMessageV2) {
+    content = content.viewOnceMessageV2.message;
+  }
+  if (content.documentWithCaptionMessage) {
+    content = content.documentWithCaptionMessage.message;
+  }
+
+  return (
+    content?.conversation ||
+    content?.extendedTextMessage?.text ||
+    content?.imageMessage?.caption ||
+    content?.videoMessage?.caption ||
+    ''
+  );
+}
+
   sock.ev.on('messages.upsert', async (m) => {
     try {
       const msg = m.messages[0];
@@ -103,14 +131,7 @@ async function startBot() {
 
       // Identify actual sender JID (works for both private chat & group chats)
       const senderJid = msg.key.participant || remoteJid;
-
-      // Extract message text from multiple message structures
-      const messageText = 
-        msg.message.conversation ||
-        msg.message.extendedTextMessage?.text ||
-        msg.message.imageMessage?.caption ||
-        msg.message.videoMessage?.caption ||
-        '';
+      const messageText = extractMessageText(msg);
 
       if (!messageText || typeof messageText !== 'string') return;
 

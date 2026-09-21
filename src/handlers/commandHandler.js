@@ -41,9 +41,16 @@ export async function handleCommand(senderJid, text) {
       `💡 _Pastikan menggunakan karakter pemisah vertical bar (\`|\`) saat menambah/mengedit item!_`;
   };
 
-  // 1. HELP / MENU COMMAND
-  if (lowerMsg === '!help' || lowerMsg === '!menu') {
+  // 1. HELP / MENU / GREETING COMMANDS
+  const greetings = ['halo', 'hi', 'hello', 'p', 'ping', 'tes', 'test', 'bot', 'bre', 'woi', 'min'];
+  if (lowerMsg === '!help' || lowerMsg === '!menu' || lowerMsg === 'help' || lowerMsg === 'menu') {
     return renderHelpText();
+  }
+
+  if (greetings.includes(lowerMsg)) {
+    return `👋 *Halo, bre! BRE Operations Agent ONLINE & SIAP!* 🤖\n\n` +
+      `📌 Ketik \`!list\` untuk melihat dashboard tugas & jadwalmu.\n` +
+      `💡 Ketik \`!help\` untuk melihat format perintah lengkap.`;
   }
 
   // 2. VIEW DASHBOARD / LIST
