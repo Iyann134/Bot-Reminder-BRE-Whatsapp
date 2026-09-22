@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "test": "node scratch/test_all.js",
+    "test:full": "node tests/test_comprehensive.js",
     "reset-session": "node src/resetSession.js"
   },
   "dependencies": {
