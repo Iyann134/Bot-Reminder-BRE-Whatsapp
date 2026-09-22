@@ -41,7 +41,7 @@ export function parseDeadline(text, referenceDate = new Date()) {
 
   // Time extraction helper
   const timeRegex = /(?:jam|pukul)?\s*(\d{1,2})(?::(\d{2}))?\s*(pagi|siang|sore|malam)?/i;
-  
+
   // Day modifiers
   if (lowerInput.includes('hari ini')) {
     handled = true;
@@ -79,15 +79,31 @@ export function parseDeadline(text, referenceDate = new Date()) {
     if (match) {
       let parsedHour = parseInt(match[1], 10);
       let parsedMin = match[2] ? parseInt(match[2], 10) : 0;
-      const period = match[3];
+      const period = match[3]?.toLowerCase();
 
       if (period) {
-        if ((period === 'malam' || period === 'sore') && parsedHour < 12) {
-          parsedHour += 12;
-        } else if (period === 'siang' && parsedHour < 11) {
-          parsedHour += 12;
-        } else if (period === 'pagi' && parsedHour === 12) {
-          parsedHour = 0;
+        if (period === 'malam') {
+          // FIX: "jam 12 malam" = tengah malam = 00:00
+          if (parsedHour === 12) {
+            parsedHour = 0;
+          } else if (parsedHour < 12) {
+            parsedHour += 12;
+          }
+        } else if (period === 'sore') {
+          // "jam 12 sore" = 12:00 (sudah benar), yang < 12 ditambah 12
+          if (parsedHour < 12) {
+            parsedHour += 12;
+          }
+        } else if (period === 'siang') {
+          // "jam 12 siang" = 12:00 (benar), yang < 11 ditambah 12
+          if (parsedHour < 11) {
+            parsedHour += 12;
+          }
+        } else if (period === 'pagi') {
+          // "jam 12 pagi" = tengah malam / 00:00
+          if (parsedHour === 12) {
+            parsedHour = 0;
+          }
         }
       } else if (parsedHour < 7 && lowerInput.includes('malam')) {
         parsedHour += 12;

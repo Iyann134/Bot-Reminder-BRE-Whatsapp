@@ -6,19 +6,47 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const dbPath = path.resolve(process.cwd(), 'db.json');
+const dbTmpPath = dbPath + '.tmp';
 
-// Initialize db.json if missing or corrupted
+// ─── Local DB Read Cache (TTL: 500ms) ───────────────────────
+// Prevents repeated disk reads within the same operation tick
+let _dbCache = null;
+let _dbCacheAt = 0;
+const DB_CACHE_TTL_MS = 500;
+
+function getCachedDb() {
+  const now = Date.now();
+  if (_dbCache && (now - _dbCacheAt) < DB_CACHE_TTL_MS) {
+    return _dbCache;
+  }
+  return null;
+}
+
+function setCachedDb(data) {
+  _dbCache = data;
+  _dbCacheAt = Date.now();
+}
+
+function invalidateCache() {
+  _dbCache = null;
+  _dbCacheAt = 0;
+}
+
+// ─── Initialize db.json if missing or corrupted ─────────────
 function initLocalDb() {
   if (!fs.existsSync(dbPath)) {
-    fs.writeFileSync(dbPath, JSON.stringify({ schedules: [], tasks: [] }, null, 2));
+    writeLocalDb({ schedules: [], tasks: [] });
   } else {
     try {
       const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
       if (!data.schedules || !data.tasks) {
-        fs.writeFileSync(dbPath, JSON.stringify({ schedules: data.schedules || [], tasks: data.tasks || [] }, null, 2));
+        writeLocalDb({
+          schedules: data.schedules || [],
+          tasks: data.tasks || []
+        });
       }
     } catch {
-      fs.writeFileSync(dbPath, JSON.stringify({ schedules: [], tasks: [] }, null, 2));
+      writeLocalDb({ schedules: [], tasks: [] });
     }
   }
 }
@@ -32,17 +60,30 @@ export const supabase = hasSupabase
 
 console.log(hasSupabase ? '⚡ Supabase Cloud Database Connected.' : '💾 Using Local JSON Database (db.json).');
 
-// --- Local JSON DB Helpers ---
+// ─── Local JSON DB Helpers ───────────────────────────────────
+
 function readLocalDb() {
+  const cached = getCachedDb();
+  if (cached) return cached;
+
   initLocalDb();
-  return JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+  const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+  setCachedDb(data);
+  return data;
 }
 
+/**
+ * Atomic write: write to .tmp first, then rename.
+ * Prevents data corruption if the process is interrupted mid-write.
+ */
 function writeLocalDb(data) {
-  fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+  const serialized = JSON.stringify(data, null, 2);
+  fs.writeFileSync(dbTmpPath, serialized, 'utf8');
+  fs.renameSync(dbTmpPath, dbPath);
+  setCachedDb(data); // update cache after write
 }
 
-// --- Data Operations (Unified Supabase / Local Dual-Mode) ---
+// ─── Data Operations (Unified Supabase / Local Dual-Mode) ────
 
 export const db = {
   // Schedules
@@ -74,6 +115,7 @@ export const db = {
       const newId = (local.schedules.reduce((max, item) => (item.id > max ? item.id : max), 0) || 0) + 1;
       const newItem = { id: newId, ...scheduleObj, created_at: new Date().toISOString() };
       local.schedules.push(newItem);
+      invalidateCache();
       writeLocalDb(local);
       return newItem;
     }
@@ -92,7 +134,10 @@ export const db = {
     } else {
       const local = readLocalDb();
       const initialLen = local.schedules.length;
-      local.schedules = local.schedules.filter(s => !(s.user_phone === userPhone && Number(s.id) === Number(scheduleId)));
+      local.schedules = local.schedules.filter(
+        s => !(s.user_phone === userPhone && Number(s.id) === Number(scheduleId))
+      );
+      invalidateCache();
       writeLocalDb(local);
       return local.schedules.length < initialLen;
     }
@@ -127,6 +172,7 @@ export const db = {
       const newId = (local.tasks.reduce((max, item) => (item.id > max ? item.id : max), 0) || 0) + 1;
       const newItem = { id: newId, ...taskObj, created_at: new Date().toISOString() };
       local.tasks.push(newItem);
+      invalidateCache();
       writeLocalDb(local);
       return newItem;
     }
@@ -156,7 +202,10 @@ export const db = {
         }
         return t;
       });
-      if (updatedItem) writeLocalDb(local);
+      if (updatedItem) {
+        invalidateCache();
+        writeLocalDb(local);
+      }
       return updatedItem;
     }
   },
@@ -181,7 +230,10 @@ export const db = {
         }
         return s;
       });
-      if (updatedItem) writeLocalDb(local);
+      if (updatedItem) {
+        invalidateCache();
+        writeLocalDb(local);
+      }
       return updatedItem;
     }
   },
@@ -199,7 +251,10 @@ export const db = {
     } else {
       const local = readLocalDb();
       const initialLen = local.tasks.length;
-      local.tasks = local.tasks.filter(t => !(t.user_phone === userPhone && Number(t.id) === Number(taskId)));
+      local.tasks = local.tasks.filter(
+        t => !(t.user_phone === userPhone && Number(t.id) === Number(taskId))
+      );
+      invalidateCache();
       writeLocalDb(local);
       return local.tasks.length < initialLen;
     }

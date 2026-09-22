@@ -1,8 +1,42 @@
 import cron from 'node-cron';
 import { db } from '../config/db.js';
 
-// Cache for sent reminders to avoid duplicate alerts (persisted in memory)
+// ─── Reminder Deduplication Cache ────────────────────────────
+// Stores sent reminder keys to prevent duplicate notifications.
+// Format: "sched_30m_{id}_{YYYY-MM-DD}" or "task_{id}_{milestone}"
 const sentReminders = new Set();
+
+// Max age for reminder keys: 2 days in milliseconds
+// Keys older than this are safe to purge since their window has passed
+const REMINDER_KEY_TTL_MS = 2 * 24 * 60 * 60 * 1000;
+// Map to track when each key was added
+const sentReminderTimestamps = new Map();
+
+/**
+ * Add a key to the sent reminders cache with timestamp
+ */
+function addReminderKey(key) {
+  sentReminders.add(key);
+  sentReminderTimestamps.set(key, Date.now());
+}
+
+/**
+ * Purge reminder keys older than REMINDER_KEY_TTL_MS (runs daily at midnight)
+ */
+function purgeExpiredReminderKeys() {
+  const now = Date.now();
+  let purged = 0;
+  for (const [key, ts] of sentReminderTimestamps.entries()) {
+    if (now - ts > REMINDER_KEY_TTL_MS) {
+      sentReminders.delete(key);
+      sentReminderTimestamps.delete(key);
+      purged++;
+    }
+  }
+  if (purged > 0) {
+    console.log(`🧹 [REMINDER CACHE] Purged ${purged} expired reminder key(s). Remaining: ${sentReminders.size}`);
+  }
+}
 
 const daysIndoMap = {
   0: 'minggu',
@@ -15,13 +49,32 @@ const daysIndoMap = {
 };
 
 /**
+ * Check if the WhatsApp socket is connected and ready to send messages
+ * @param {import('@whiskeysockets/baileys').WASocket} sock 
+ * @returns {boolean}
+ */
+function isSocketReady(sock) {
+  if (!sock) return false;
+  // Baileys marks connected socket by having a valid `sock.user` object
+  if (!sock.user) return false;
+  // Check WebSocket connection state (1 = OPEN)
+  if (sock.ws && sock.ws.readyState !== 1) return false;
+  return true;
+}
+
+/**
  * Initialize background cron runner to check schedules and task deadlines
  * @param {import('@whiskeysockets/baileys').WASocket} sock 
  */
 export function startReminderScheduler(sock) {
   console.log('⏰ Proactive Reminder Scheduler initialized (Checking every 1 minute).');
 
-  // Cron runs every minute
+  // ── Daily cleanup: purge expired reminder keys at midnight ──
+  cron.schedule('0 0 * * *', () => {
+    purgeExpiredReminderKeys();
+  });
+
+  // ── Main cron: runs every minute ────────────────────────────
   cron.schedule('* * * * *', async () => {
     try {
       const now = new Date();
@@ -54,7 +107,7 @@ export function startReminderScheduler(sock) {
         if (diffMins >= 25 && diffMins <= 30) {
           const reminderKey = `sched_30m_${item.id}_${todayStr}`;
           if (!sentReminders.has(reminderKey)) {
-            sentReminders.add(reminderKey);
+            addReminderKey(reminderKey);
 
             const msg = `🚨 *PENGINGAT JADWAL KULIAH* 🚨\n` +
               `━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -71,7 +124,7 @@ export function startReminderScheduler(sock) {
         if (diffMins >= 5 && diffMins <= 10) {
           const reminderKey = `sched_10m_${item.id}_${todayStr}`;
           if (!sentReminders.has(reminderKey)) {
-            sentReminders.add(reminderKey);
+            addReminderKey(reminderKey);
 
             const msg = `🔔 *PENGINGAT: KULIAH BENTAR LAGI!* 🔔\n` +
               `━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -102,7 +155,7 @@ export function startReminderScheduler(sock) {
         if (diffHours >= 23 && diffHours <= 25) {
           const key = `task_${task.id}_24h`;
           if (!sentReminders.has(key)) {
-            sentReminders.add(key);
+            addReminderKey(key);
             const msg = `📅 *PENGINGAT DEADLINE TUGAS (H-1)* 📅\n` +
               `━━━━━━━━━━━━━━━━━━━━━\n` +
               `📌 *${task.title}*\n` +
@@ -116,7 +169,7 @@ export function startReminderScheduler(sock) {
         if (diffHours >= 2.5 && diffHours <= 3.5) {
           const key = `task_${task.id}_3h`;
           if (!sentReminders.has(key)) {
-            sentReminders.add(key);
+            addReminderKey(key);
             const msg = `⏰ *PENGINGAT DEADLINE TUGAS (3 Jam Lagi)* ⏰\n` +
               `━━━━━━━━━━━━━━━━━━━━━\n` +
               `📌 *${task.title}*\n` +
@@ -130,7 +183,7 @@ export function startReminderScheduler(sock) {
         if (diffMins >= 45 && diffMins <= 65) {
           const key = `task_${task.id}_1h`;
           if (!sentReminders.has(key)) {
-            sentReminders.add(key);
+            addReminderKey(key);
             const msg = `🔥 *PENGINGAT CRITICAL (1 Jam Lagi)* 🔥\n` +
               `━━━━━━━━━━━━━━━━━━━━━\n` +
               `📌 *${task.title}*\n` +
@@ -144,7 +197,7 @@ export function startReminderScheduler(sock) {
         if (diffMins >= 1 && diffMins <= 15) {
           const key = `task_${task.id}_15m`;
           if (!sentReminders.has(key)) {
-            sentReminders.add(key);
+            addReminderKey(key);
             const msg = `🚨 *WARNING: DEADLINE HAMPIR HABIS!* 🚨\n` +
               `━━━━━━━━━━━━━━━━━━━━━\n` +
               `📌 *${task.title}*\n` +
@@ -158,7 +211,7 @@ export function startReminderScheduler(sock) {
         if (diffMins <= 0 && diffMins >= -5) {
           const key = `task_${task.id}_due`;
           if (!sentReminders.has(key)) {
-            sentReminders.add(key);
+            addReminderKey(key);
             const msg = `⚠️ *DEADLINE TUGAS TIBA!* ⚠️\n` +
               `━━━━━━━━━━━━━━━━━━━━━\n` +
               `📌 *${task.title}*\n` +
@@ -177,8 +230,8 @@ export function startReminderScheduler(sock) {
 
 async function sendWhatsAppNotification(sock, userPhone, text) {
   try {
-    if (!sock) {
-      console.error('❌ WhatsApp socket is not ready.');
+    if (!isSocketReady(sock)) {
+      console.warn(`⚠️ [REMINDER SKIP] Socket belum siap / sedang reconnect. Reminder untuk ${userPhone} dilewati.`);
       return;
     }
 

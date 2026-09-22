@@ -78,12 +78,16 @@ export async function handleCommand(senderJid, text) {
     const title = parts[0];
     const deadline = parts[1] || 'Tidak ada deadline';
 
-    const newTask = await taskService.addTask(userPhone, title, deadline);
-    return `✅ *TUGAS BERHASIL DITAMBAHKAN!*\n` +
-      `━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📌 *Judul:* ${newTask.title}\n` +
-      `⏰ *Deadline:* ${newTask.deadline_text}\n\n` +
-      `_Ketik \`!list\` untuk melihat dashboard tugasmu._`;
+    try {
+      const newTask = await taskService.addTask(userPhone, title, deadline);
+      return `✅ *TUGAS BERHASIL DITAMBAHKAN!*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📌 *Judul:* ${newTask.title}\n` +
+        `⏰ *Deadline:* ${newTask.deadline_text}\n\n` +
+        `_Ketik \`!list\` untuk melihat dashboard tugasmu._`;
+    } catch (err) {
+      return `⚠️ *GAGAL MENAMBAHKAN TUGAS*\n${err.message}`;
+    }
   }
 
   // 4. TAMBAH JADWAL
@@ -98,14 +102,17 @@ export async function handleCommand(senderJid, text) {
     }
 
     const [day, time, subject, location] = parts;
-    const newSchedule = await scheduleService.addSchedule(userPhone, day, time, subject, location || 'Online / TBD');
-
-    return `✅ *JADWAL BERHASIL DITAMBAHKAN!*\n` +
-      `━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📚 *Matkul:* ${newSchedule.subject}\n` +
-      `🕒 *Waktu:* ${newSchedule.day}, ${newSchedule.time}\n` +
-      `📍 *Lokasi:* ${newSchedule.location}\n\n` +
-      `_Ketik \`!list\` untuk melihat seluruh jadwalmu._`;
+    try {
+      const newSchedule = await scheduleService.addSchedule(userPhone, day, time, subject, location || 'Online / TBD');
+      return `✅ *JADWAL BERHASIL DITAMBAHKAN!*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📚 *Matkul:* ${newSchedule.subject}\n` +
+        `🕒 *Waktu:* ${newSchedule.day}, ${newSchedule.time}\n` +
+        `📍 *Lokasi:* ${newSchedule.location}\n\n` +
+        `_Ketik \`!list\` untuk melihat seluruh jadwalmu._`;
+    } catch (err) {
+      return `⚠️ *GAGAL MENAMBAHKAN JADWAL*\n${err.message}`;
+    }
   }
 
   // 5. EDIT TUGAS
@@ -120,17 +127,19 @@ export async function handleCommand(senderJid, text) {
     }
 
     const [idInput, newTitle, newDeadline] = parts;
-    const updatedTask = await taskService.editTask(userPhone, idInput, newTitle, newDeadline);
-
-    if (!updatedTask) {
-      return `❌ *ID TUGAS TIDAK DITEMUKAN!*\nPastikan ID tugas benar (e.g., \`T01\`). Ketik \`!list\` untuk mengecek.`;
+    try {
+      const updatedTask = await taskService.editTask(userPhone, idInput, newTitle, newDeadline);
+      if (!updatedTask) {
+        return `❌ *ID TUGAS TIDAK DITEMUKAN!*\nPastikan ID tugas benar (e.g., \`T01\`). Ketik \`!list\` untuk mengecek.`;
+      }
+      return `✏️ *TUGAS BERHASIL DIUPDATE!*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📌 *Judul:* ${updatedTask.title}\n` +
+        `⏰ *Deadline:* ${updatedTask.deadline_text}\n\n` +
+        `_Ketik \`!list\` untuk melihat perubahan._`;
+    } catch (err) {
+      return `⚠️ *GAGAL MENGEDIT TUGAS*\n${err.message}`;
     }
-
-    return `✏️ *TUGAS BERHASIL DIUPDATE!*\n` +
-      `━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📌 *Judul:* ${updatedTask.title}\n` +
-      `⏰ *Deadline:* ${updatedTask.deadline_text}\n\n` +
-      `_Ketik \`!list\` untuk melihat perubahan._`;
   }
 
   // 6. EDIT JADWAL
@@ -145,18 +154,20 @@ export async function handleCommand(senderJid, text) {
     }
 
     const [idInput, day, time, subject, location] = parts;
-    const updatedSchedule = await scheduleService.editSchedule(userPhone, idInput, day, time, subject, location);
-
-    if (!updatedSchedule) {
-      return `❌ *ID JADWAL TIDAK DITEMUKAN!*\nPastikan ID jadwal benar (e.g., \`J01\`). Ketik \`!list\` untuk mengecek.`;
+    try {
+      const updatedSchedule = await scheduleService.editSchedule(userPhone, idInput, day, time, subject, location);
+      if (!updatedSchedule) {
+        return `❌ *ID JADWAL TIDAK DITEMUKAN!*\nPastikan ID jadwal benar (e.g., \`J01\`). Ketik \`!list\` untuk mengecek.`;
+      }
+      return `✏️ *JADWAL BERHASIL DIUPDATE!*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📚 *Matkul:* ${updatedSchedule.subject}\n` +
+        `🕒 *Waktu:* ${updatedSchedule.day}, ${updatedSchedule.time}\n` +
+        `📍 *Lokasi:* ${updatedSchedule.location}\n\n` +
+        `_Ketik \`!list\` untuk melihat perubahan._`;
+    } catch (err) {
+      return `⚠️ *GAGAL MENGEDIT JADWAL*\n${err.message}`;
     }
-
-    return `✏️ *JADWAL BERHASIL DIUPDATE!*\n` +
-      `━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📚 *Matkul:* ${updatedSchedule.subject}\n` +
-      `🕒 *Waktu:* ${updatedSchedule.day}, ${updatedSchedule.time}\n` +
-      `📍 *Lokasi:* ${updatedSchedule.location}\n\n` +
-      `_Ketik \`!list\` untuk melihat perubahan._`;
   }
 
   // 7. SELESAI TUGAS

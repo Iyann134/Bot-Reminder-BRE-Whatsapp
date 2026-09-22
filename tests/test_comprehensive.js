@@ -353,11 +353,98 @@ async function testEnvironment() {
 }
 
 // ─────────────────────────────────────────────
+// KATEGORI 9 — BUG FIX VERIFICATION
+// ─────────────────────────────────────────────
+async function testBugFixes() {
+  section('KATEGORI 9 — Bug Fix Verification');
+
+  // BUG FIX 1: Atomic write — verify .tmp file is cleaned up after write
+  const dbPath = path.resolve(process.cwd(), 'db.json');
+  const dbTmpPath = dbPath + '.tmp';
+  await handleCommand(USER_A, '!tambah tugas Test Atomic Write | Besok');
+  assert('BUG1: .tmp file tidak tertinggal setelah atomic write', !fs.existsSync(dbTmpPath));
+  assert('BUG1: db.json valid JSON setelah write', (() => {
+    try { JSON.parse(fs.readFileSync(dbPath, 'utf-8')); return true; } catch { return false; }
+  })());
+
+  // BUG FIX 2: Midnight parsing — "jam 12 malam" harus jadi 00:00
+  const ref = new Date('2026-09-22T10:00:00+07:00');
+  const midnightResult = parseDeadline('Besok jam 12 malam', ref);
+  assert('BUG2: "Besok jam 12 malam" → jam 00:00 (tengah malam)', midnightResult.datetime?.getHours() === 0);
+
+  // "jam 12 pagi" = tengah malam
+  const midnightPagi = parseDeadline('Besok jam 12 pagi', ref);
+  assert('BUG2: "Besok jam 12 pagi" → jam 00:00', midnightPagi.datetime?.getHours() === 0);
+
+  // "jam 12 siang" = 12:00 (siang hari) — harus tetap 12
+  const noonResult = parseDeadline('Besok jam 12 siang', ref);
+  assert('BUG2: "Besok jam 12 siang" → tetap 12:00 (siang)', noonResult.datetime?.getHours() === 12);
+
+  // "jam 12 sore" = 12:00 — sama dengan siang
+  const noonSore = parseDeadline('Besok jam 12 sore', ref);
+  assert('BUG2: "Besok jam 12 sore" → tetap 12:00', noonSore.datetime?.getHours() === 12);
+
+  // BUG FIX 4: Input length validation
+  const longTitle = 'A'.repeat(201); // 201 chars → should fail
+  const longTitleRes = await handleCommand(USER_A, `!tambah tugas ${longTitle} | Besok`);
+  assert('BUG4: Judul > 200 karakter → pesan error', longTitleRes?.includes('GAGAL') || longTitleRes?.includes('panjang'));
+
+  // Invalid day validation
+  const invalidDayRes = await handleCommand(USER_A, '!tambah jadwal Xyz | 08:00 | Matkul | Lab');
+  assert('BUG4: Nama hari tidak valid → pesan error', invalidDayRes?.includes('GAGAL') || invalidDayRes?.includes('tidak valid'));
+
+  // BUG FIX 5: Socket state check (verify function exists and handles null gracefully)
+  // We test by verifying the reminderService imports without crash
+  try {
+    await import('../src/services/reminderService.js');
+    assert('BUG5: reminderService.js dapat diimpor tanpa error', true);
+  } catch(e) {
+    assert('BUG5: reminderService.js dapat diimpor tanpa error', false, e.message);
+  }
+}
+
+// ─────────────────────────────────────────────
+// KATEGORI 10 — OPTIMIZATION VERIFICATION
+// ─────────────────────────────────────────────
+async function testOptimizations() {
+  section('KATEGORI 10 — Optimization Verification');
+
+  // OPT-2: Auto-capitalize hari
+  const schedRes = await handleCommand(USER_A, '!tambah jadwal senin | 08:00 - 10:00 | Test Capitalize | Lab X');
+  assert('OPT2: Tambah jadwal dengan hari lowercase berhasil', schedRes?.includes('BERHASIL'));
+  // Check dashboard shows capitalized day
+  const dashCapitalize = await handleCommand(USER_A, '!list');
+  assert('OPT2: Nama hari di dashboard di-capitalize (Senin bukan senin)', dashCapitalize?.includes('Senin'));
+
+  // OPT-3: OVERDUE indicator — tambah tugas dengan deadline sudah lewat
+  // Manually insert an overdue task via dateParser with past date
+  const { db } = await import('../src/config/db.js');
+  const pastDate = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2 jam lalu
+  await db.addTask({
+    user_phone: '628111111111',
+    title: 'Tugas Overdue Test',
+    deadline_text: '2 jam yang lalu',
+    deadline_datetime: pastDate,
+    status: 'pending'
+  });
+  const dashOverdue = await handleCommand(USER_A, '!list');
+  assert('OPT3: Dashboard menampilkan indikator Overdue', dashOverdue?.includes('Overdue') || dashOverdue?.includes('LEWAT'));
+
+  // OPT-1: Read cache — multiple reads dalam satu tick tidak crash
+  const reads = await Promise.all([
+    db.getTasks('628111111111'),
+    db.getTasks('628111111111'),
+    db.getSchedules('628111111111'),
+  ]);
+  assert('OPT1: Concurrent reads tidak crash (cache berfungsi)', reads.every(r => Array.isArray(r)));
+}
+
+// ─────────────────────────────────────────────
 // MAIN RUNNER
 // ─────────────────────────────────────────────
 async function runAll() {
   console.log('\n' + '█'.repeat(55));
-  console.log('🔥 BRE BOT — COMPREHENSIVE TEST SUITE');
+  console.log('🔥 BRE BOT — COMPREHENSIVE TEST SUITE v2');
   console.log('█'.repeat(55));
   console.log(`⏰ Waktu: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`);
 
@@ -370,6 +457,8 @@ async function runAll() {
     await testDateParser();
     await testSecurity();
     await testEnvironment();
+    await testBugFixes();
+    await testOptimizations();
   } catch (err) {
     console.error('\n💥 FATAL ERROR dalam test runner:', err);
   }
